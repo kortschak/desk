@@ -28,15 +28,6 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	machine.UART1_TX_PIN.Configure(machine.PinConfig{
-		Mode: machine.PinOutput,
-	})
-	machine.UART1_TX_PIN.Low()
-	machine.UART0_TX_PIN.Configure(machine.PinConfig{
-		Mode: machine.PinOutput,
-	})
-	machine.UART0_TX_PIN.Low()
-
 	// Let serial port stabilise.
 	time.Sleep(time.Second)
 
@@ -151,7 +142,6 @@ func (m *mitm) init(ctx context.Context) error {
 	m.act.Configure(machine.PinConfig{
 		Mode: machine.PinOutput,
 	})
-	m.act.High()
 
 	m.log.LogAttrs(ctx, slog.LevelInfo, "configure uarts")
 	m.log.LogAttrs(ctx, slog.LevelInfo, "configure controller UART")
@@ -172,10 +162,6 @@ func (m *mitm) init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	m.log.LogAttrs(ctx, slog.LevelInfo, "trigger presence")
-	time.Sleep(16 * time.Millisecond)
-	m.act.Low()
 
 	m.log.LogAttrs(ctx, slog.LevelInfo, "set up watchdog")
 	machine.Watchdog.Configure(machine.WatchdogConfig{
@@ -210,7 +196,7 @@ func (m *mitm) init(ctx context.Context) error {
 		_, err = m.controller.Write(pkt)
 		time.Sleep(poll)
 		if err != nil {
-			m.log.LogAttrs(ctx, slog.LevelError, "write uart1", slog.Any("err", err))
+			m.log.LogAttrs(ctx, slog.LevelError, "write handset UART", slog.Any("err", err))
 		}
 	})
 	go m.readUART(ctx, "controller", 0x5a, 5, m.controller, poll, func(pkt []byte) {
@@ -224,24 +210,7 @@ func (m *mitm) init(ctx context.Context) error {
 			m.log.LogAttrs(ctx, slog.LevelInfo-1, "height", slog.Any("position", p), slog.Any("pkt", bytesAttr(pkt)))
 			m.position.Store(p)
 		}
-		_, err = m.handset.Write(pkt)
-		time.Sleep(poll)
-		if err != nil {
-			m.log.LogAttrs(ctx, slog.LevelError, "write uart0", slog.Any("err", err))
-		}
 	})
-
-	for range 10 {
-		machine.Watchdog.Update()
-		m.log.LogAttrs(ctx, slog.LevelInfo, "write")
-		m.mu.Lock()
-		_, err := m.controller.Write([]byte{0xa5, 0x0, 0x0, 0xff, 0xff})
-		m.mu.Unlock()
-		if err != nil {
-			m.log.LogAttrs(ctx, slog.LevelError, "write to controller", slog.Any("err", err))
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
 
 	return nil
 }
