@@ -79,6 +79,9 @@ func main() {
 		m.act.Set(pin.Get())
 	})
 
+	m.log.LogAttrs(ctx, slog.LevelInfo, "start keep-alive")
+	go m.keepAlive(ctx)
+
 	m.log.LogAttrs(ctx, slog.LevelInfo, "start server")
 	go func() {
 		err := m.server(ctx)

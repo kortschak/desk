@@ -121,6 +121,32 @@ func (m *mitm) init(ctx context.Context) error {
 	return nil
 }
 
+const keepAliveInterval = 15 * time.Minute
+
+func (m *mitm) keepAlive(ctx context.Context) {
+	pkt := []byte{0xa5, 0x00, 0x60, 0x9f, 0xff} // Packet is an Up+Down button press.
+	for range time.NewTicker(keepAliveInterval).C {
+		m.log.LogAttrs(ctx, slog.LevelInfo, "send keep-alive")
+		func() {
+			m.mu.Lock()
+			defer m.mu.Unlock()
+
+			m.log.LogAttrs(ctx, slog.LevelDebug, "write keep-alive pkt to controller", slog.Any("pkt", bytesAttr(pkt)))
+			m.act.High()
+			time.Sleep(time.Millisecond)
+			for range 5 {
+				_, err := m.controller.Write(pkt)
+				time.Sleep(10 * time.Millisecond)
+				if err != nil {
+					m.log.Error("write to controller", slog.Any("err", err))
+					return
+				}
+			}
+			m.act.Low()
+		}()
+	}
+}
+
 func (m *mitm) readUART(ctx context.Context, name string, start byte, len int, uart *machine.UART, wait time.Duration, do func([]byte)) {
 	r := uartReader{
 		src:   uart,

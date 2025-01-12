@@ -112,6 +112,10 @@ On start-up the yellow wire (RJ45 line 4) is made high by the handset for 16ms a
 
 ![handshake](handshake.png)
 
+### Watchdog
+
+At 18 minutes after the last button action packet sent to the controller by the handset, the controller sends a single `5afffffffd` packet. After this, actions sent to the controller will fail with an E04 error. This can be reset by a physical handset button press, but not by packets sent by the remote controller. The issue can be mitigated until the protocol is more fully understood by chirping five `a500609fff` packets before the watchdog time elapses. This packet is a `du-----` button action; resetting the watchdog timer, leaving the desk in the current position and refreshing the remote controller's knowledge of the desk's height.
+
 ## Limitations
 
 The handshaking protocol between the linear actuator controller and the handset is has not been possible to properly implement for the handset side via the remote controller, so it is not handled at all. After power-up, it may be necessary to momentarily press a controller button and then wait for the display to turn off. After this, the remote controller will work.
