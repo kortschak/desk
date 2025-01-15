@@ -56,15 +56,15 @@ Header byte: `0x5a`, followed by 3 digits encoded based according to the bits re
 
 7-segment display:
 ```
-  -5-
+  -2-
 |     |
-2     6
+5     1
 |     |
-  -1-
+  -6-
 |     |
-3     7
+4     0
 |     |
-  -4-   0
+  -3-   7
 ```
 
 Digits:
