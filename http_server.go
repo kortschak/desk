@@ -103,6 +103,7 @@ func (m *mitm) server(ctx context.Context) error {
 				return
 			}
 		}
+		m.alive()
 		m.act.Low()
 		w.Write([]byte("ok"))
 	}))

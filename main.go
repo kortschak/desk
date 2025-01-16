@@ -32,6 +32,8 @@ func main() {
 
 		controller: machine.UART1,
 		act:        machine.GPIO16, // P21
+
+		last: make(chan time.Time),
 	}
 	m.position.Store(position{})
 	m.level.Set(slog.LevelInfo)
@@ -76,7 +78,11 @@ func main() {
 
 	m.log.LogAttrs(ctx, slog.LevelInfo, "pass through pin")
 	m.button.SetInterrupt(machine.PinToggle, func(pin machine.Pin) {
-		m.act.Set(pin.Get())
+		high := pin.Get()
+		if high {
+			m.alive()
+		}
+		m.act.Set(high)
 	})
 
 	m.log.LogAttrs(ctx, slog.LevelInfo, "start keep-alive")

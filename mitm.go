@@ -24,6 +24,7 @@ type mitm struct {
 	mu         sync.Mutex
 	controller *machine.UART
 	act        machine.Pin
+	last       chan time.Time
 
 	position atomic.Value // position
 
@@ -125,25 +126,51 @@ const keepAliveInterval = 15 * time.Minute
 
 func (m *mitm) keepAlive(ctx context.Context) {
 	pkt := []byte{0xa5, 0x00, 0x60, 0x9f, 0xff} // Packet is an Up+Down button press.
-	for range time.NewTicker(keepAliveInterval).C {
-		m.log.LogAttrs(ctx, slog.LevelInfo, "send keep-alive")
-		func() {
-			m.mu.Lock()
-			defer m.mu.Unlock()
+	last := time.Now()
+	for {
+		// TODO: Replace this with the commented case below and remove
+		// the timer when tinygo supports go1.23 time.Timer behaviour.
+		timer := time.NewTimer(last.Add(keepAliveInterval).Sub(time.Now()))
 
-			m.log.LogAttrs(ctx, slog.LevelDebug, "write keep-alive pkt to controller", slog.Any("pkt", bytesAttr(pkt)))
-			m.act.High()
-			time.Sleep(time.Millisecond)
-			for range 5 {
-				_, err := m.controller.Write(pkt)
-				time.Sleep(10 * time.Millisecond)
-				if err != nil {
-					m.log.Error("write to controller", slog.Any("err", err))
-					return
+		select {
+		// case last = <-time.After(last.Add(keepAliveInterval).Sub(time.Now())):
+		case last = <-timer.C:
+			m.log.LogAttrs(ctx, slog.LevelInfo, "send keep-alive")
+			func() {
+				m.mu.Lock()
+				defer m.mu.Unlock()
+
+				m.log.LogAttrs(ctx, slog.LevelDebug, "write keep-alive pkt to controller", slog.Any("pkt", bytesAttr(pkt)))
+				m.act.High()
+				time.Sleep(time.Millisecond)
+				for range 5 {
+					_, err := m.controller.Write(pkt)
+					time.Sleep(10 * time.Millisecond)
+					if err != nil {
+						m.log.Error("write to controller", slog.Any("err", err))
+						return
+					}
 				}
+				m.act.Low()
+			}()
+		case last = <-m.last:
+			if !timer.Stop() {
+				<-timer.C
 			}
-			m.act.Low()
-		}()
+			m.log.LogAttrs(ctx, slog.LevelDebug, "delay keep-alive", slog.Any("until", last.Add(keepAliveInterval)))
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return
+		}
+	}
+}
+
+func (m *mitm) alive() {
+	select {
+	case m.last <- time.Now():
+	default:
 	}
 }
 
