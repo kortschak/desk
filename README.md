@@ -18,7 +18,7 @@ Due to the protocol used by the desk, the height endpoint may return the last pr
 
 ### Bluetooth
 
-Bluetooth is not yet implemented due to platform limitations.
+The controller will advertise a service with your provided name and UUIDs. The `move_to` characteristic is read/write allowing you to move to the programmed memory heights for the desk, and a read `height` characteristic that will give a string showing the height of the desk. If the value is "0", it is not yet known to the remote controller.
 
 ## Building
 
@@ -26,7 +26,13 @@ Install `tinygo` version 0.34.0+ and then:
 
 If building for HTTP control, write your SSID into wifi/ssid.text and your WiFi password into wifi/password.text. Do not add a final newline to the files.
 
-`tinygo flash -target pico-w -stack-size=8kb .` at the root of the repo with the target Raspberry Pi Pico W attached to a USB port.
+If building for Bluetooth control, write single word name into a file advertise_name.text to name the Bluetooth service and then provide UUIDs for the service and exposed characteristics: `uuidgen >service.uuid`, `uuidgen >move_to.uuid` and `uuidgen >height.uuid` (confirm that the UUIDs do not collide with any that are already being used locally).
+
+Use `tinygo flash` at the root of the repo with the target Raspberry Pi Pico W attached to a USB port:
+
+- HTTP-only: `tinygo flash -target pico-w -stack-size=8kb .`
+- Bluetooth-only: `tinygo flash -tags bluetooth -target pico-w -stack-size=8kb .`
+- both: `tinygo flash -tags http,bluetooth -target pico-w -stack-size=8kb .`
 
 Attach the handset to the Handset RJ45 socket on the board and a **non-crossover** Cat5 cable from the controller to the Controller RJ54 on the board. Provide USB 5V power to the Raspberry Pi Pico.
 

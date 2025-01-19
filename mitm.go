@@ -26,7 +26,8 @@ type mitm struct {
 	act        machine.Pin
 	last       chan time.Time
 
-	position atomic.Value // position
+	position         atomic.Value // position
+	bluetoothBlocked atomic.Bool
 
 	log   *slog.Logger
 	sw    switchedWriter
@@ -36,7 +37,14 @@ type mitm struct {
 func (m *mitm) init(ctx context.Context) error {
 	m.log.LogAttrs(ctx, slog.LevelInfo, "configure pico W device")
 	start := time.Now()
-	err := m.dev.Init(cyw43439Config)
+
+	var cfg cyw43439.Config
+	if useBluetooth {
+		cfg = cyw43439.DefaultWifiBluetoothConfig()
+	} else {
+		cfg = cyw43439.DefaultWifiConfig()
+	}
+	err := m.dev.Init(cfg)
 	if err != nil {
 		return newLedError(1, err)
 	}

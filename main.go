@@ -88,13 +88,25 @@ func main() {
 	m.log.LogAttrs(ctx, slog.LevelInfo, "start keep-alive")
 	go m.keepAlive(ctx)
 
-	m.log.LogAttrs(ctx, slog.LevelInfo, "start server")
-	go func() {
-		err := m.server(ctx)
-		if err != nil {
-			panic(err)
-		}
-	}()
+	if useHTTP {
+		m.log.LogAttrs(ctx, slog.LevelInfo, "start http server")
+		go func() {
+			err := m.httpServer(ctx)
+			if err != nil {
+				panic(err)
+			}
+		}()
+	}
+
+	if useBluetooth {
+		m.log.LogAttrs(ctx, slog.LevelInfo, "start bluetooth server")
+		go func() {
+			err := m.bluetoothServer(ctx)
+			if err != nil {
+				panic(err)
+			}
+		}()
+	}
 
 	m.log.LogAttrs(ctx, slog.LevelInfo, "start heartbeat")
 	for {

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build http || !bluetooth
+
 package main
 
 import (
@@ -13,15 +15,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/soypat/cyw43439"
 	"github.com/soypat/seqs/stacks"
 
 	"github.com/kortschak/desk/wifi"
 )
 
-var cyw43439Config = cyw43439.DefaultWifiConfig()
+var useHTTP = true
 
-func (m *mitm) server(ctx context.Context) error {
+func (m *mitm) httpServer(ctx context.Context) error {
 	_, stack, err := wifi.SetupWithDHCP(m.dev, wifi.SetupConfig{
 		Hostname: "desk",
 		TCPPorts: 1,
@@ -134,6 +135,26 @@ func (m *mitm) server(ctx context.Context) error {
 		m.sw.use(w)
 		defer m.sw.close()
 		time.Sleep(10 * time.Minute)
+	}))
+	mux.Handle("/bt/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		m.log.LogAttrs(ctx, slog.LevelInfo, "set bluetooth state")
+		w.Header().Set("Connection", "close")
+		switch allow := r.URL.Query().Get("allow"); allow {
+		case "true":
+			m.bluetoothBlocked.Store(false)
+		case "false":
+			m.bluetoothBlocked.Store(true)
+		default:
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "unknown state: %q", allow)
+			return
+		}
+		m.log.LogAttrs(ctx, slog.LevelInfo, "set bluetooth state", slog.Bool("allow", m.bluetoothBlocked.Load()))
+		w.Write([]byte("ok"))
 	}))
 	return http.Serve(ln, mux)
 }
